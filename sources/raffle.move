@@ -50,19 +50,13 @@ module raffle::raffle {
         if (raffle.is_resolved()) {
             abort ERaffleAlreadyResolved
         };
-        if (payment.value() < raffle.ticket_price) {
-            abort ENotEnoughFunds
-        };
         raffle.prize_money.join(payment.split(raffle.ticket_price, ctx).into_balance());
         let ticket_id = object::new(ctx);
         raffle.sold_tickets.push_back(ticket_id.to_inner());
         
         // Create and transfer ticket
-        transfer::transfer(
-            RaffleTicket {
-                id: ticket_id
-            }
-        , ctx.sender());
+        let ticket = RaffleTicket { id: ticket_id };
+        transfer::transfer(ticket, ctx.sender());
     }
 
     /// Resolve the raffle (decide who wins)
