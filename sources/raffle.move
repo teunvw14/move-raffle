@@ -11,7 +11,6 @@ module raffle::raffle {
     const ERaffleNotResolved: u64 = 1;
     const ETicketDidNotWin: u64 = 2;
     const ERaffleAlreadyResolved: u64 = 3;
-    const ENotEnoughFunds: u64 = 4;
 
     /// A raffle. Token `T` will be what is used to buy tickets for that raffle.
     public struct Raffle<phantom T> has key, store {
