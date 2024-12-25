@@ -7,10 +7,10 @@ module raffle::raffle {
     use iota::random::{Self, Random};
 
     // Errors
-    const ERaffleNotResolvableYet: u64 = 0;
-    const ERaffleNotResolved: u64 = 1;
-    const ETicketDidNotWin: u64 = 2;
-    const ERaffleAlreadyResolved: u64 = 3;
+    const ERaffleAlreadyResolved: u64 = 0;
+    const ERaffleNotResolvableYet: u64 = 1;
+    const ERaffleNotResolved: u64 = 2;
+    const ETicketDidNotWin: u64 = 3;
 
     /// A raffle. Token `T` will be what is used to buy tickets for that raffle.
     public struct Raffle<phantom T> has key, store {
@@ -46,29 +46,28 @@ module raffle::raffle {
     }
 
     public fun buy_ticket<T>(raffle: &mut Raffle<T>, payment: &mut  Coin<T>, ctx: &mut TxContext) {
-        if (raffle.is_resolved()) {
-            abort ERaffleAlreadyResolved
-        };
+        assert!(!raffle.is_resolved(), ERaffleAlreadyResolved);
+
+        // Add payment to the prize money
         raffle.prize_money.join(payment.split(raffle.ticket_price, ctx).into_balance());
-        let ticket_id = object::new(ctx);
-        raffle.sold_tickets.push_back(ticket_id.to_inner());
         
         // Create and transfer ticket
+        let ticket_id = object::new(ctx);
+        raffle.sold_tickets.push_back(ticket_id.to_inner());
         let ticket = RaffleTicket { id: ticket_id };
         transfer::transfer(ticket, ctx.sender());
     }
 
     /// Resolve the raffle (decide who wins)
     entry fun resolve<T>(raffle: &mut Raffle<T>, clock: &Clock, r: &Random, ctx: &mut TxContext) {
+        // Can't resolve twice
+        assert!(!raffle.is_resolved(), ERaffleAlreadyResolved);
+
+        // Make sure that the raffle is ready to be resolved
         let current_timestamp_ms = clock.timestamp_ms();
-        if (current_timestamp_ms < raffle.redemption_timestamp_ms) {
-            abort ERaffleNotResolvableYet
-        };
+        assert!(current_timestamp_ms < raffle.redemption_timestamp_ms, ERaffleNotResolvableYet);
 
-        if (raffle.is_resolved()) {
-            return // do nothing if the raffle was already resolved
-        };
-
+        // Pick a winner at random
         let tickets_sold = raffle.sold_tickets.length();
         let winner_idx = random::new_generator(r, ctx).generate_u64_in_range(0, tickets_sold - 1);
         raffle.winning_ticket = option::some(raffle.sold_tickets[winner_idx]);
@@ -76,14 +75,12 @@ module raffle::raffle {
 
     /// Claim the prize money using the winning RaffleTicket
     public fun claim_prize_money<T>(raffle: &mut Raffle<T>, ticket: RaffleTicket, ctx: &mut TxContext) {
-        if (!raffle.is_resolved()) {
-            abort ERaffleNotResolved
-        };
+        assert!(raffle.is_resolved(), ERaffleNotResolved);
 
         let RaffleTicket { id: winning_ticket_id } = ticket;
-        if (raffle.winning_ticket != option::some(*winning_ticket_id.as_inner())) {
-            abort ETicketDidNotWin
-        };
+        assert!(raffle.winning_ticket == option::some(*winning_ticket_id.as_inner()),
+            ETicketDidNotWin
+        );
 
         // Delete ticket
         object::delete(winning_ticket_id);
