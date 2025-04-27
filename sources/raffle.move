@@ -65,7 +65,7 @@ module raffle::raffle {
 
         // Make sure that the raffle is ready to be resolved
         let current_timestamp_ms = clock.timestamp_ms();
-        assert!(current_timestamp_ms < raffle.redemption_timestamp_ms, ERaffleNotResolvableYet);
+        assert!(current_timestamp_ms >= raffle.redemption_timestamp_ms, ERaffleNotResolvableYet);
 
         // Pick a winner at random
         let tickets_sold = raffle.sold_tickets.length();
